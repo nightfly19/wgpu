@@ -90,10 +90,19 @@ impl crate::Instance<Api> for Instance {
                 Ok(Surface::from_view(handle.ui_view, None))
             }
             #[cfg(target_os = "macos")]
-            raw_window_handle::RawWindowHandle::AppKit(handle) => Ok(Surface::from_view(
-                handle.ns_view,
-                Some(&self.managed_metal_layer_delegate),
-            )),
+            raw_window_handle::RawWindowHandle::AppKit(handle) => {
+                use objc::{msg_send, runtime::Object, sel, sel_impl};
+                let ns_view = if handle.ns_view.is_null() {
+                    let ns_window = handle.ns_window as *mut Object;
+                    msg_send![ns_window, contentView]
+                } else {
+                    handle.ns_view
+                };
+                Ok(Surface::from_view(
+                    ns_view,
+                    Some(&self.managed_metal_layer_delegate),
+                ))
+            }
             _ => Err(crate::InstanceError),
         }
     }
